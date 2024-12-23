@@ -2,16 +2,18 @@ package main
 
 import (
 	"image/color"
+	"strconv"
 	"time"
 
 	lv "github.com/SolarCTP/path-on-paper/levels"
 	eb "github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	input "github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
-	PlayerCursorRadius int = 1
+	PlayerRadius int = 1
 )
 
 type FPSCap struct {
@@ -48,17 +50,35 @@ type Game struct {
 	lvl   *lv.LevelManager
 	fps   FPSCap
 	state PlayState
+	font  *text.GoXFace
 }
 
 func (g *Game) Update() error {
-	if inpututil.IsKeyJustPressed(eb.KeyQ) {
+	if input.IsKeyJustPressed(eb.KeyQ) {
 		return eb.Termination
 	}
 
+	// DEBUG: reset game state
+	if input.IsKeyJustPressed(eb.KeyR) {
+		g.state = StateNotInLevel
+		if g.lvl.LoadLevelByID(1) {
+			g.state = StateBeforeStart
+		}
+	}
+
+	cursorPos := lv.XYtoPoint(eb.CursorPosition())
 	switch g.state {
 	case StateNotInLevel:
 	case StateBeforeStart:
-
+		if g.lvl.ActiveLevel.TouchingStartPos(cursorPos) {
+			g.state = StateStarted
+		}
+	case StateStarted:
+		if g.lvl.ActiveLevel.TouchingEdge(PlayerRadius, cursorPos) {
+			g.state = StateGameOver
+		} else if g.lvl.ActiveLevel.TouchingFinishArea(cursorPos) {
+			g.state = StateTouchedFinishArea
+		}
 	}
 
 	return nil
@@ -73,11 +93,16 @@ func (g *Game) Draw(screen *eb.Image) {
 	cursorX, cursorY := eb.CursorPosition()
 	vector.DrawFilledCircle(
 		screen, float32(cursorX), float32(cursorY),
-		float32(PlayerCursorRadius), color.Black, false,
+		float32(PlayerRadius), color.Black, false,
 	)
 
 	opts := &eb.DrawImageOptions{}
 	screen.DrawImage(g.lvl.ActiveLevel.Img, opts)
+
+	txtOpts := &text.DrawOptions{}
+	txtOpts.GeoM.Translate(50, 50)
+	txtOpts.GeoM.Scale(3, 3)
+	text.Draw(screen, strconv.Itoa(int(g.state)), g.font, txtOpts)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {

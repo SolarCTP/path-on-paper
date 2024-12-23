@@ -17,7 +17,7 @@ const (
 type LevelID uint64
 
 type LevelData struct {
-	edges        []Point // the black pixels in the level's image
+	edges        []Point
 	startPosArea []Point
 	finishArea   []Point
 }
@@ -45,6 +45,15 @@ func (l *Level) TouchingEdge(playerRadius int, playerPos Point) bool {
 func (l *Level) TouchingFinishArea(playerPos Point) bool {
 	for _, finishPoint := range l.data.finishArea {
 		if playerPos == finishPoint {
+			return true
+		}
+	}
+	return false
+}
+
+func (l *Level) TouchingStartPos(playerPos Point) bool {
+	for _, startPoint := range l.data.startPosArea {
+		if playerPos == startPoint {
 			return true
 		}
 	}

@@ -8,14 +8,16 @@ import (
 
 // If you add more types, make sure to update the slice
 // in findPixelsByColors()
+type PixelType uint8
+
 const (
-	PIXELS_STARTPOS = iota
+	PIXELS_STARTPOS PixelType = iota
 	PIXELS_EDGES
 	PIXELS_FINISHAREA
 )
 
 // ptToColor is the map from pixel type to pixel color
-func ptToColor(pt uint) color.RGBA {
+func ptToColor(pt PixelType) color.RGBA {
 	switch pt {
 	case PIXELS_STARTPOS:
 		return color.RGBA{0, 0, 255, 255}
@@ -46,9 +48,9 @@ func ptToColor(pt uint) color.RGBA {
 // getPixelMap analyzes a level image pixel by pixel and returns a
 // map of (pixel type, pixel slice) pairs. Each pixel type has its
 // own color (defined in pixelTypeColor()) and purpose.
-func getPixelMap(img image.Image) map[uint][]Point {
-	var pixelMap = make(map[uint][]Point)
-	pixelTypes := []uint{
+func getPixelMap(img image.Image) map[PixelType][]Point {
+	var pixelMap = make(map[PixelType][]Point)
+	pixelTypes := []PixelType{
 		PIXELS_STARTPOS,
 		PIXELS_EDGES,
 		PIXELS_FINISHAREA,
@@ -71,7 +73,7 @@ func getPixelMap(img image.Image) map[uint][]Point {
 // verifyPixelMap checks that every component is present in the pixel map,
 // and returns true if all of them are present, or false otherwise (and logs
 // what is missing to the console)
-func verifyPixelMap(pMap map[uint][]Point) bool {
+func verifyPixelMap(pMap map[PixelType][]Point) bool {
 	_, okEdges := pMap[PIXELS_EDGES]
 	_, okStartPos := pMap[PIXELS_STARTPOS]
 	_, okFinishArea := pMap[PIXELS_FINISHAREA]
