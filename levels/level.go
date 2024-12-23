@@ -5,24 +5,27 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 const (
 	IMAGE_FORMAT string = "png"
-	LEVELS_PATH  string = "./level_files"
+	LEVELS_PATH  string = "./levels/level_files/"
 )
 
 type LevelID uint64
 
 type LevelData struct {
-	edges      []Point // the black pixels in the level's image
-	startPos   Point
-	finishArea []Point
+	edges        []Point // the black pixels in the level's image
+	startPosArea []Point
+	finishArea   []Point
 }
 
 type Level struct {
 	ID   LevelID
 	data *LevelData
+	Img  *ebiten.Image
 }
 
 // TouchingEdge reports whether the player is currently less than playerRadius away
@@ -48,25 +51,16 @@ func (l *Level) TouchingFinishArea(playerPos Point) bool {
 	return false
 }
 
-// setStartPos sets the startPos as the average of the coords
-// of blue pixels
-func (l *Level) setStartPos(startPosArea []Point) {
-	for _, px := range startPosArea {
-		l.data.startPos = l.data.startPos.Add(px)
-	}
-	l.data.startPos = l.data.startPos.Div(len(startPosArea))
-}
-
 // Load loads the level and returns whether it succeded.
 // Optionally, you can use it concurrently by passing a
 // non-nil bool channel, on which success or failure
 // will be sent
-func (l *Level) Load(loadProgress chan bool) bool {
+func (l *Level) Load(loadProgressOrNil chan bool) bool {
 	// quick function to report success or failure to
 	// the loadProgress channel if it is valid
 	chanReport := func(s bool) {
-		if loadProgress != nil {
-			loadProgress <- s
+		if loadProgressOrNil != nil {
+			loadProgressOrNil <- s
 		}
 	}
 
@@ -82,7 +76,7 @@ func (l *Level) Load(loadProgress chan bool) bool {
 
 	// load the image file
 	levelImageFile, fileErr := os.Open(
-		strconv.FormatUint(uint64(l.ID), 10) + "." + IMAGE_FORMAT, // e.g. 1.png
+		LEVELS_PATH + strconv.FormatUint(uint64(l.ID), 10) + "." + IMAGE_FORMAT, // e.g. .../1.png
 	)
 	if fileErr != nil {
 		log.Println(fileErr)
@@ -97,21 +91,31 @@ func (l *Level) Load(loadProgress chan bool) bool {
 		chanReport(false)
 		return false
 	}
-
 	levelImageFile.Close() // not needed anymore
 
-	colorPxCoordsMap := findPixelsByColors(levelImage,
-		COLOR_BLACK, COLOR_GREEN, COLOR_BLUE)
+	pixelMap := getPixelMap(levelImage)
+
+	// check that all areas actually exist
+	if !verifyPixelMap(pixelMap) {
+		chanReport(false)
+		return false
+	}
 
 	// get edges (black pixels)
-	l.data.edges = colorPxCoordsMap[COLOR_BLACK]
+	l.data.edges = append(l.data.edges, pixelMap[PIXELS_EDGES]...)
 
 	// set start pos (calculated in place)
-	l.setStartPos(colorPxCoordsMap[COLOR_BLUE])
+	l.data.startPosArea = append(l.data.startPosArea, pixelMap[PIXELS_STARTPOS]...)
 
 	// get finish area (green pixels)
-	l.data.finishArea = colorPxCoordsMap[COLOR_GREEN]
+	l.data.finishArea = append(l.data.finishArea, pixelMap[PIXELS_FINISHAREA]...)
 
+	clear(pixelMap)
+
+	// save the image to draw it during game execution
+	l.Img = ebiten.NewImageFromImage(levelImage)
+
+	// report back to caller, and channel if called as thread
 	chanReport(true)
 	return true
 }
@@ -120,14 +124,19 @@ func (l *Level) Load(loadProgress chan bool) bool {
 func (l *Level) Unload() {
 	clear(l.data.edges)
 	clear(l.data.finishArea)
+	l.Img = nil
 	l.data = nil // shoutout to the GC
 }
 
 // NewLevel returns the level with the specified ID, unloaded
 func NewLevel(newId LevelID) *Level {
 	newLvl := &Level{
-		ID:   newId,
-		data: nil,
+		ID: newId,
+		data: &LevelData{
+			edges:      nil,
+			finishArea: nil,
+		},
+		Img: nil,
 	}
 	return newLvl
 }
