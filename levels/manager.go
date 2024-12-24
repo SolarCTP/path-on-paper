@@ -47,6 +47,7 @@ func searchAvailableLevels() []LevelID {
 		}
 	}
 	log.Println("Search done. Found", len(availableLevelIDs), "levels.")
+	slices.Sort(availableLevelIDs)
 	return availableLevelIDs
 }
 
@@ -56,26 +57,43 @@ func searchAvailableLevels() []LevelID {
 
 // }
 
-func (l *LevelManager) LoadLevelByID(id LevelID) bool {
+func (l *LevelManager) LoadLevelByID(id LevelID, success func(), failure func()) {
 	// check that the level exists
 	if slices.Index(l.LevelIDs, id) == -1 {
 		log.Println("Could not find level with ID", strconv.FormatUint(uint64(id), 10))
-		return false
+		if failure != nil {
+			failure()
+		}
+		return
 	}
 
+	log.Println("Loading level ID", id, "...")
 	nextLevel := NewLevel(id)
-	// TODO: load level concurrently
-	if !nextLevel.Load(nil) {
-		return false
-	}
-	if l.ActiveLevel != nil {
-		l.ActiveLevel.Unload()
-	}
-	l.ActiveLevel = nextLevel
-	return true
+
+	loadProgress := make(chan bool)
+	go func() {
+		go nextLevel.Load(loadProgress)
+		loadResult := <-loadProgress
+		if !loadResult {
+			log.Println("Could not load level ID", id)
+			log.Println("Reverting back to previous level.")
+			if failure != nil {
+				failure()
+			}
+			return
+		}
+		if l.ActiveLevel != nil {
+			l.ActiveLevel.Unload()
+		}
+		l.ActiveLevel = nextLevel
+		log.Println("Done!")
+		if success != nil {
+			success()
+		}
+	}()
 }
 
-func (l *LevelManager) LoadNextAvailableLevel() bool {
+func (l *LevelManager) LoadNextAvailableLevel() {
 	currentLvlIdIndex := slices.Index(l.LevelIDs, l.ActiveLevel.ID)
 	var nextLevelIndex int = -1
 	if currentLvlIdIndex == len(l.LevelIDs)-1 {
@@ -83,10 +101,10 @@ func (l *LevelManager) LoadNextAvailableLevel() bool {
 	} else {
 		nextLevelIndex = currentLvlIdIndex + 1
 	}
-	return l.LoadLevelByID(l.LevelIDs[nextLevelIndex])
+	l.LoadLevelByID(l.LevelIDs[nextLevelIndex], nil, nil)
 }
 
-func (l *LevelManager) LoadPrevAvailableLevel() bool {
+func (l *LevelManager) LoadPrevAvailableLevel() {
 	currentLvlIdIndex := slices.Index(l.LevelIDs, l.ActiveLevel.ID)
 	var prevLevelIndex int = -1
 	if currentLvlIdIndex == 0 {
@@ -94,5 +112,5 @@ func (l *LevelManager) LoadPrevAvailableLevel() bool {
 	} else {
 		prevLevelIndex = currentLvlIdIndex - 1
 	}
-	return l.LoadLevelByID(l.LevelIDs[prevLevelIndex])
+	l.LoadLevelByID(l.LevelIDs[prevLevelIndex], nil, nil)
 }

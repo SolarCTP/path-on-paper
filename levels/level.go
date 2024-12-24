@@ -70,6 +70,7 @@ func (l *Level) Load(loadProgressOrNil chan bool) bool {
 	chanReport := func(s bool) {
 		if loadProgressOrNil != nil {
 			loadProgressOrNil <- s
+			close(loadProgressOrNil)
 		}
 	}
 

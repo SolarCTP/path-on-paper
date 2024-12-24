@@ -3,7 +3,6 @@ package main
 import (
 	"image/color"
 	"strconv"
-	"time"
 
 	lv "github.com/SolarCTP/path-on-paper/levels"
 	"github.com/SolarCTP/path-on-paper/ui"
@@ -21,19 +20,9 @@ const (
 	LogicalWinResY int = 1080
 )
 
-type FPSCap struct {
-	cap         int32
-	maxInterval time.Duration
-	lastDraw    time.Time
-}
-
-func NewFPSCap(cap int32) FPSCap {
-	return FPSCap{
-		cap:         cap,
-		maxInterval: time.Second / time.Duration(cap),
-		lastDraw:    time.Now(),
-	}
-}
+var (
+	PlayerColor color.RGBA = color.RGBA{255, 255, 255, 255}
+)
 
 type PlayState uint8
 
@@ -45,16 +34,10 @@ const (
 	StateTouchedFinishArea                  // the cursor has touched the finish area and won
 )
 
-// FrameTooEarly returns true if the time passed since the last
-// draw is less than the interval specified by the frame cap
-func (f *FPSCap) FrameTooEarly() bool {
-	return time.Since(f.lastDraw) < f.maxInterval
-}
-
 type Game struct {
-	lvl   *lv.LevelManager
-	fps   FPSCap
-	state PlayState
+	lvl      *lv.LevelManager
+	state    PlayState
+	settings Settings
 }
 
 func (g *Game) Update() error {
@@ -64,9 +47,21 @@ func (g *Game) Update() error {
 
 	// DEBUG: reset game state
 	if input.IsKeyJustPressed(eb.KeyR) {
-		if g.lvl.LoadLevelByID(g.lvl.ActiveLevel.ID) {
+		g.state = StateNotInLevel
+		g.lvl.LoadLevelByID(g.lvl.ActiveLevel.ID, func() {
 			g.state = StateBeforeStart
-		}
+		}, func() {})
+	}
+
+	// toggle fullscreen
+	if input.IsKeyJustPressed(eb.KeyF11) {
+		g.settings.Fullscreen = !g.settings.Fullscreen
+		eb.SetFullscreen(g.settings.Fullscreen)
+	}
+
+	// end here if there is no active level (otherwise nil dereference)
+	if g.lvl.ActiveLevel == nil {
+		return nil
 	}
 
 	cursorPos := lv.XYtoPoint(eb.CursorPosition())
@@ -96,8 +91,10 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *eb.Image) {
-	// Cap the FPS by skipping frames that want to be drawn too early
-	if g.fps.FrameTooEarly() {
+	if g.lvl.ActiveLevel == nil {
+		screen.Fill(color.Black)
+		text.Draw(screen, "Loading...", ui.MainFontWithSize(100),
+			ui.DefaultTxtOptsAt(200, 200))
 		return
 	}
 
@@ -108,15 +105,16 @@ func (g *Game) Draw(screen *eb.Image) {
 	cursorX, cursorY := eb.CursorPosition()
 	vector.DrawFilledCircle(
 		screen, float32(cursorX), float32(cursorY),
-		float32(PlayerRadius), color.Black, false,
+		float32(PlayerRadius), PlayerColor, true,
 	)
 
-	// DEBUG text: Game state and current level ID
+	// DEBUG text: Game state, current level ID, FPS
 	text.Draw(screen, g.gameStateText(), ui.MainFontWithSize(40),
 		ui.DefaultTxtOptsAt(20, float64(LogicalWinResY)-50))
 	text.Draw(screen, strconv.Itoa(int(g.lvl.ActiveLevel.ID)), ui.MainFontWithSize(40),
 		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-30, float64(LogicalWinResY)-50))
-	screen.ColorModel()
+	text.Draw(screen, strconv.Itoa(int(eb.ActualFPS())), ui.MainFontWithSize(40),
+		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-100, float64(LogicalWinResY)-100))
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {

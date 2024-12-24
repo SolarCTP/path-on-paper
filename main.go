@@ -10,7 +10,6 @@ import (
 func main() {
 	// game object creation
 	game := &Game{
-		fps:   NewFPSCap(240),
 		lvl:   lv.NewLevelManager(),
 		state: StateNotInLevel,
 	}
@@ -18,14 +17,12 @@ func main() {
 	eb.SetWindowSize(1280, 720)
 	eb.SetWindowTitle("Path on Paper")
 	eb.SetTPS(120)
-	eb.SetVsyncEnabled(false)
+	eb.SetVsyncEnabled(true)
 	eb.SetCursorMode(eb.CursorModeHidden)
 
-	if game.lvl.LoadLevelByID(1) {
+	game.lvl.LoadLevelByID(1, func() {
 		game.state = StateBeforeStart
-	} else {
-		log.Fatal("Level load failed")
-	}
+	}, nil)
 
 	if err := eb.RunGame(game); err != nil {
 		log.Fatal(err)

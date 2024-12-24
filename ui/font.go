@@ -35,11 +35,6 @@ func DefaultTxtOptsAt(x, y float64) *text.DrawOptions {
 	return &DefaultTextOpts
 }
 
-func init() {
-	setupFont()
-	setupDefaultTextOpts()
-}
-
 func setupFont() {
 	fontSource, err := text.NewGoTextFaceSource(bytes.NewReader(robotoRegular))
 	if err != nil {

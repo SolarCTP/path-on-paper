@@ -1,0 +1,1 @@
+- anticheat: check for excessive mouse speed or input device abuse (e.g. tablet: tap on start and finish => huge distance in a single frame => invalid)
