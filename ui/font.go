@@ -1,41 +1,54 @@
 package ui
 
 import (
+	"bytes"
+	_ "embed"
+	"image/color"
 	"log"
-	"os"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/opentype"
+	"golang.org/x/text/language"
 )
 
-var MainFont *text.GoXFace = nil
+var mainFontSource *text.GoTextFaceSource = nil
 
-const mainFontPath string = "./ui/Roboto-Regular.ttf"
+//go:embed Roboto-Regular.ttf
+var robotoRegular []byte
+
+var DefaultTextOpts text.DrawOptions = text.DrawOptions{}
+
+func MainFontWithSize(size float64) *text.GoTextFace {
+	return &text.GoTextFace{
+		Source:   mainFontSource,
+		Size:     size,
+		Language: language.Italian,
+	}
+}
+
+// DefaultTxtOptsAt returns the default text options with the specified translation applied.
+//
+// If you need other controls, copy DefaultTextOpts (don't reference it directly)
+// and apply your changes
+func DefaultTxtOptsAt(x, y float64) *text.DrawOptions {
+	DefaultTextOpts.GeoM.Reset()
+	DefaultTextOpts.GeoM.Translate(x, y)
+	return &DefaultTextOpts
+}
 
 func init() {
 	setupFont()
+	setupDefaultTextOpts()
 }
 
 func setupFont() {
-	fontData, err := os.ReadFile(mainFontPath)
+	fontSource, err := text.NewGoTextFaceSource(bytes.NewReader(robotoRegular))
 	if err != nil {
-		log.Print("Error while reading font file: ")
-		log.Fatalln(err)
+		log.Fatalln("Could not load font:", err)
 	}
-	parsedFont, err2 := opentype.Parse(fontData)
-	if err != nil {
-		log.Print("Error while parsing font file: ")
-		log.Fatalln(err2)
-	}
-	face, err3 := opentype.NewFace(parsedFont, &opentype.FaceOptions{
-		Size:    32,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
-	if err != nil {
-		log.Print("Error while creating font face: ")
-		log.Fatalln(err3)
-	}
-	MainFont = text.NewGoXFace(face)
+	mainFontSource = fontSource
+}
+
+func setupDefaultTextOpts() {
+	DefaultTextOpts.Filter = 1 // Linear filtering
+	DefaultTextOpts.ColorScale.ScaleWithColor(color.Black)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lv "github.com/SolarCTP/path-on-paper/levels"
+	"github.com/SolarCTP/path-on-paper/ui"
 	eb "github.com/hajimehoshi/ebiten/v2"
 	input "github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -13,7 +14,11 @@ import (
 )
 
 const (
-	PlayerRadius int = 1
+	PlayerRadius int = 3 // used in edge collision calculation
+
+	// Window resolution used in Game.Layout()
+	LogicalWinResX int = 1920
+	LogicalWinResY int = 1080
 )
 
 type FPSCap struct {
@@ -50,7 +55,6 @@ type Game struct {
 	lvl   *lv.LevelManager
 	fps   FPSCap
 	state PlayState
-	font  *text.GoXFace
 }
 
 func (g *Game) Update() error {
@@ -60,8 +64,7 @@ func (g *Game) Update() error {
 
 	// DEBUG: reset game state
 	if input.IsKeyJustPressed(eb.KeyR) {
-		g.state = StateNotInLevel
-		if g.lvl.LoadLevelByID(1) {
+		if g.lvl.LoadLevelByID(g.lvl.ActiveLevel.ID) {
 			g.state = StateBeforeStart
 		}
 	}
@@ -70,6 +73,14 @@ func (g *Game) Update() error {
 	switch g.state {
 	case StateNotInLevel:
 	case StateBeforeStart:
+		// DEBUG: switch between levels with arrow keys
+		if input.IsKeyJustPressed(eb.KeyArrowLeft) {
+			g.lvl.LoadPrevAvailableLevel()
+		} else if input.IsKeyJustReleased(eb.KeyArrowRight) {
+			g.lvl.LoadNextAvailableLevel()
+		}
+
+		// start the game once the player moves the cursor to the start area
 		if g.lvl.ActiveLevel.TouchingStartPos(cursorPos) {
 			g.state = StateStarted
 		}
@@ -90,21 +101,40 @@ func (g *Game) Draw(screen *eb.Image) {
 		return
 	}
 
+	opts := &eb.DrawImageOptions{}
+	screen.DrawImage(g.lvl.ActiveLevel.Img, opts)
+
+	// Draw a circle in the position of the player
 	cursorX, cursorY := eb.CursorPosition()
 	vector.DrawFilledCircle(
 		screen, float32(cursorX), float32(cursorY),
 		float32(PlayerRadius), color.Black, false,
 	)
 
-	opts := &eb.DrawImageOptions{}
-	screen.DrawImage(g.lvl.ActiveLevel.Img, opts)
-
-	txtOpts := &text.DrawOptions{}
-	txtOpts.GeoM.Translate(50, 50)
-	txtOpts.GeoM.Scale(3, 3)
-	text.Draw(screen, strconv.Itoa(int(g.state)), g.font, txtOpts)
+	// DEBUG text: Game state and current level ID
+	text.Draw(screen, g.gameStateText(), ui.MainFontWithSize(40),
+		ui.DefaultTxtOptsAt(20, float64(LogicalWinResY)-50))
+	text.Draw(screen, strconv.Itoa(int(g.lvl.ActiveLevel.ID)), ui.MainFontWithSize(40),
+		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-30, float64(LogicalWinResY)-50))
+	screen.ColorModel()
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 1920, 1080
+	return LogicalWinResX, LogicalWinResY
+}
+
+func (g *Game) gameStateText() string {
+	switch g.state {
+	case StateBeforeStart:
+		return "Game not started"
+	case StateStarted:
+		return "Playing"
+	case StateGameOver:
+		return "Game over"
+	case StateTouchedFinishArea:
+		return "You win!"
+	case StateNotInLevel:
+		return "n/a"
+	}
+	return "<UNKNOWN>"
 }
