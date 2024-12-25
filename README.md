@@ -2,6 +2,8 @@
 > [!WARNING]
 > The game is in the very early stages of development and will not hesitate to explode if you look at it the wrong way. Don't go too hard on it, I made the first build in a single evening.
 
+Also I might change the name of the game at some point.
+
 ## Introduction
 Path On Paper is a simple maze game that you play with your cursor. Move your cursor to the starting area with, traverse tight paths without touching the borders, and reach the end area to win.
 ## Levels
