@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	PlayerRadius int = 3 // used in edge collision calculation
+	PlayerRadius     float32 = 3  // used in edge collision calculation
+	PlayerAuraRadius float32 = 10 // used in edge collision calculation
 
 	// Window resolution used in Game.Layout()
 	LogicalWinResX int = 1920
@@ -21,7 +22,8 @@ const (
 )
 
 var (
-	PlayerColor color.RGBA = color.RGBA{255, 255, 255, 255}
+	PlayerColor     color.RGBA = color.RGBA{255, 255, 255, 255}
+	PlayerAuraColor color.RGBA = color.RGBA{196, 66, 49, 10}
 )
 
 type PlayState uint8
@@ -45,6 +47,8 @@ func (g *Game) Update() error {
 		return eb.Termination
 	}
 
+	ui.Manager.EUI.Update()
+
 	// DEBUG: reset game state
 	if input.IsKeyJustPressed(eb.KeyR) {
 		g.state = StateNotInLevel
@@ -64,29 +68,36 @@ func (g *Game) Update() error {
 		return nil
 	}
 
+	// DEBUG: switch between levels with arrow keys
+	checkLevelSwitchKeys := func() {
+		if input.IsKeyJustPressed(eb.KeyArrowLeft) {
+			g.lvl.LoadPrevAvailableLevel()
+			g.state = StateBeforeStart
+		} else if input.IsKeyJustReleased(eb.KeyArrowRight) {
+			g.lvl.LoadNextAvailableLevel()
+			g.state = StateBeforeStart
+		}
+	}
+
 	cursorPos := lv.XYtoPoint(eb.CursorPosition())
 	switch g.state {
 	case StateNotInLevel:
 	case StateBeforeStart:
-		// DEBUG: switch between levels with arrow keys
-		if input.IsKeyJustPressed(eb.KeyArrowLeft) {
-			g.lvl.LoadPrevAvailableLevel()
-		} else if input.IsKeyJustReleased(eb.KeyArrowRight) {
-			g.lvl.LoadNextAvailableLevel()
-		}
+		checkLevelSwitchKeys()
 
 		// start the game once the player moves the cursor to the start area
 		if g.lvl.ActiveLevel.TouchingStartPos(cursorPos) {
 			g.state = StateStarted
 		}
 	case StateStarted:
-		if g.lvl.ActiveLevel.TouchingEdge(PlayerRadius, cursorPos) {
+		if g.lvl.ActiveLevel.TouchingEdge(int(PlayerRadius), cursorPos) {
 			g.state = StateGameOver
 		} else if g.lvl.ActiveLevel.TouchingFinishArea(cursorPos) {
 			g.state = StateTouchedFinishArea
 		}
+	case StateTouchedFinishArea:
+		checkLevelSwitchKeys()
 	}
-
 	return nil
 }
 
@@ -101,20 +112,29 @@ func (g *Game) Draw(screen *eb.Image) {
 	opts := &eb.DrawImageOptions{}
 	screen.DrawImage(g.lvl.ActiveLevel.Img, opts)
 
-	// Draw a circle in the position of the player
+	// Draw the cursor (a pixel surrounded by a circle)
 	cursorX, cursorY := eb.CursorPosition()
+	// vector.DrawFilledCircle(
+	// 	screen, float32(cursorX), float32(cursorY),
+	// 	PlayerAuraRadius, PlayerAuraColor, true,
+	// )
 	vector.DrawFilledCircle(
 		screen, float32(cursorX), float32(cursorY),
-		float32(PlayerRadius), PlayerColor, true,
+		PlayerRadius, PlayerColor, true,
 	)
 
 	// DEBUG text: Game state, current level ID, FPS
 	text.Draw(screen, g.gameStateText(), ui.MainFontWithSize(40),
 		ui.DefaultTxtOptsAt(20, float64(LogicalWinResY)-50))
 	text.Draw(screen, strconv.Itoa(int(g.lvl.ActiveLevel.ID)), ui.MainFontWithSize(40),
-		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-30, float64(LogicalWinResY)-50))
+		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-30-text.Advance(
+			strconv.Itoa(LogicalWinResX), ui.MainFontWithSize(40),
+		), float64(LogicalWinResY)-50))
 	text.Draw(screen, strconv.Itoa(int(eb.ActualFPS())), ui.MainFontWithSize(40),
 		ui.DefaultTxtOptsAt(float64(LogicalWinResX)-100, float64(LogicalWinResY)-100))
+
+	// Draw the UI on top of everything else
+	ui.Manager.EUI.Draw(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -132,7 +152,7 @@ func (g *Game) gameStateText() string {
 	case StateTouchedFinishArea:
 		return "You win!"
 	case StateNotInLevel:
-		return "n/a"
+		return "N/A"
 	}
 	return "<UNKNOWN>"
 }

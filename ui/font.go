@@ -13,7 +13,9 @@ import (
 var mainFontSource *text.GoTextFaceSource = nil
 
 //go:embed Roboto-Regular.ttf
-var robotoRegular []byte
+var mainFontBytes []byte
+
+// var mainFontData = goregular.TTF
 
 var DefaultTextOpts text.DrawOptions = text.DrawOptions{}
 
@@ -36,7 +38,7 @@ func DefaultTxtOptsAt(x, y float64) *text.DrawOptions {
 }
 
 func setupFont() {
-	fontSource, err := text.NewGoTextFaceSource(bytes.NewReader(robotoRegular))
+	fontSource, err := text.NewGoTextFaceSource(bytes.NewReader(mainFontBytes))
 	if err != nil {
 		log.Fatalln("Could not load font:", err)
 	}
