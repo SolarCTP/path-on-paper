@@ -3,6 +3,7 @@ package levels
 import (
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"strconv"
 
@@ -37,6 +38,36 @@ func (l *Level) TouchingEdge(playerRadius int, playerPos Point) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// TouchingEdgeV2 reports whether the player has crossed a point between
+// lastPos and currentPos such that its distance to any edge point is
+// smaller than playerRadius (basically the other one but less prone to cheating).
+//
+// This is more expensive than V1. TODO divide edge pixels into chunks to
+// avoid having to check every single one every frame
+func (l *Level) TouchingEdgeV2(playerRadius int, currentPos, lastPos Point) bool {
+	if lastPos.Eq(Point{X: 0, Y: 0}) {
+		return false
+	}
+
+	m := float64(currentPos.Y-lastPos.Y) / float64(currentPos.X-lastPos.X)
+	y := float64(lastPos.Y)
+	for x := math.Min(
+		float64(lastPos.X), float64(currentPos.X),
+	); x <= math.Max(
+		float64(lastPos.X), float64(currentPos.X),
+	); x++ {
+		y += m
+		roundedY := int(math.Round(y))
+		for _, p := range l.data.edges {
+			if Dist(p, XYtoPoint(int(x), roundedY)) <= float64(playerRadius) {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 

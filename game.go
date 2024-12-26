@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"log"
 	"strconv"
 
 	lv "github.com/SolarCTP/path-on-paper/levels"
@@ -15,6 +16,8 @@ import (
 const (
 	PlayerRadius     float32 = 3  // used in edge collision calculation
 	PlayerAuraRadius float32 = 10 // used in edge collision calculation
+
+	AntiCheatMaxMouseDelta float32 = 200
 
 	// Window resolution used in Game.Layout()
 	LogicalWinResX int = 1920
@@ -37,9 +40,10 @@ const (
 )
 
 type Game struct {
-	lvl      *lv.LevelManager
-	state    PlayState
-	settings Settings
+	lvl           *lv.LevelManager
+	state         PlayState
+	settings      Settings
+	lastCursorPos lv.Point
 }
 
 func (g *Game) Update() error {
@@ -90,7 +94,14 @@ func (g *Game) Update() error {
 			g.state = StateStarted
 		}
 	case StateStarted:
-		if g.lvl.ActiveLevel.TouchingEdge(int(PlayerRadius), cursorPos) {
+		// if g.lvl.ActiveLevel.TouchingEdge(int(PlayerRadius), cursorPos) {
+		// 	g.state = StateGameOver
+		antiCheatLargeDistance := lv.Dist(cursorPos, g.lastCursorPos) > float64(AntiCheatMaxMouseDelta)
+		if g.lvl.ActiveLevel.TouchingEdgeV2(int(PlayerRadius), cursorPos, g.lastCursorPos) ||
+			antiCheatLargeDistance {
+			if antiCheatLargeDistance {
+				log.Println("Cheating detected. You might be using a touchscreen or drawing tablet.")
+			}
 			g.state = StateGameOver
 		} else if g.lvl.ActiveLevel.TouchingFinishArea(cursorPos) {
 			g.state = StateTouchedFinishArea
@@ -98,16 +109,18 @@ func (g *Game) Update() error {
 	case StateTouchedFinishArea:
 		checkLevelSwitchKeys()
 	}
+
+	g.lastCursorPos.X, g.lastCursorPos.Y = eb.CursorPosition()
 	return nil
 }
 
 func (g *Game) Draw(screen *eb.Image) {
-	if g.lvl.ActiveLevel == nil {
-		screen.Fill(color.Black)
-		text.Draw(screen, "Loading...", ui.MainFontWithSize(100),
-			ui.DefaultTxtOptsAt(200, 200))
-		return
-	}
+	// if g.lvl.ActiveLevel == nil {
+	// 	screen.Fill(color.Black)
+	// 	text.Draw(screen, "Loading...", ui.MainFontWithSize(100),
+	// 		ui.DefaultTxtOptsAt(200, 200))
+	// 	return
+	// }
 
 	opts := &eb.DrawImageOptions{}
 	screen.DrawImage(g.lvl.ActiveLevel.Img, opts)
