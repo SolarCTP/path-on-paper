@@ -27,5 +27,3 @@ This is game is the child of two things:
 - one flash game whose name I don't remember, where you need to traverse tight spaces with your mouse cursor without touching the walls. I used to like this a lot when I was little. This is basically that but you can make your own levels easily.
 
 The game is unpolished and it looks janky on purpose, because it was born in the spirit of youthful playfulness. I could not care less about how it looks, I care that you can create as well as take on this challenging experience.
-## Goals
-My main goal with the game is to grow a community of people who make, play and share levels with each other. It would be cool to see that.
